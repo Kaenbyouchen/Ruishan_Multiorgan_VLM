@@ -1,0 +1,7 @@
+nibabel
+numpy
+Pillow
+PyYAML
+requests
+matplotlib
+urllib3

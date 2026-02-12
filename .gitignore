@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+.cursor/
+.venv/
+venv/
+
+# Large/generated data and outputs
+data/
+outputs/
+
+# Notebook/runtime artifacts
+.ipynb_checkpoints/

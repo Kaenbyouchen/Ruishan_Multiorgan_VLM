@@ -1,0 +1,78 @@
+dataset:
+  image_dir: data/img_amos_mr
+  label_dir: data/pred_amos_mr
+  list_file: data/img_amos_mr/list/dataset.yaml
+  ids:
+  use_all_cases: false
+  single_id: "507"
+
+pipeline:
+  output_dir: outputs/shupeng_ten_percent_eachclass_prior_case_507_harddesc
+  keep_output_dir: true
+  plane: axial
+  positions_percent: []
+  positions_from_json: outputs/organ_square_distribution/case_{case_id}/pred_representative_positions.json
+  positions_json_key: average_slice
+  auto_compute_positions: true
+  positions_compute_gt_dir: data/gt_amos_mr
+  positions_compute_output_dir: outputs/organ_square_distribution
+  positions_compute_window_size: 10
+  run_per_bin: true
+  use_all_slices: false
+  save_vlm_inputs_all: false
+  auto_generate_each_class_3words: true
+  auto_fill_missing_cases_after_run: true
+  auto_fill_max_rounds: 3
+  auto_fill_sleep_seconds: 2
+  overlay_alpha: 0.9
+
+vlm:
+  name: gpt-5.2
+  mode: infer
+  api_key_env: VLM_API_KEY
+  api_key: ""
+  api_key_env_map:
+    gemini-3.0-pro: GEMINI_API_KEY
+    gpt-5.2: OPENAI_API_KEY
+  provider: openai
+  model: gpt-5.2
+  api_base: https://api.openai.com
+  max_images: 78
+  per_class: true
+  require_nonempty_hard_classes: true
+  save_each_class_prompt_preview_first_bin: false
+  force_nonempty_descriptions_for_hard_classes: false
+  descriptions_only_for_hard_classes: true
+  prompt_template_each_class: |
+    You will see two images for a single organ at slice {slice_number}: (1) the raw MRI image and (2) the same slice with the {target_organ} prediction mask overlay.
+    The prediction mask from medformer model is shown in red (may be very small) and outlined by a yellow edge; PAY CLOSE ATTENTION to tiny RED areas.
+    Slice plane: {plane}. Types: raw or mask_overlay.
+    Each image is labeled below, in the same order as the images:
+    {image_labels}
+    Task: Provide the description for {target_organ} only.
+    Step 1) Decide whether {target_organ} is present in this slice by looking at the raw image. If you believe it is absent, output an empty string.
+    Step 2) If the red prediction mask is present, use the mask location as the primary evidence for position/shape/size.
+    Step 3) If the red prediction mask is absent, DEFAULT to output an empty string. Only use anatomical prior knowledge if you are EXTREMELY CONFIDENT the organ is present AND you can explicitly justify it using AT LEAST TWO clear, independent visual anchors in the raw image (e.g., a visible boundary/contour, a characteristic internal texture, and/or a consistent spatial relationship to nearby large structures like liver/spleen/aorta/IVC/spine). If you cannot clearly cite two anchors, output an empty string.
+    IMPORTANT: When the red prediction mask is absent, do NOT guess. If there is any uncertainty, output an empty string.
+    Output ONLY this template:
+    "Morphology: <round/oval/elongated/irregular>; Size: <very small/small/medium/large/very large>; Position: <left-up/up/right-up/left/center/right/left-down/down/right-down>"
+    Important: Position refers only to the 2D image coordinates.
+  prompt_template_hard_class: |
+    You will see 2D abdominal MRI slices. For each slice, you will receive a raw MRI image and 13 organ prediction mask overlays.
+    The prediction mask from medformer model is shown in red (may be very small) and outlined by a yellow edge; PAY CLOSE ATTENTION to tiny RED areas.
+    Slice plane: {plane}. Types: raw or mask_overlay.
+    Each image is labeled below (organ, slice, and type), in the same order as the images:
+    {image_labels}
+    Task: Rank organ segmentation difficulty and output JSON with only the top-5 hard classes.
+    First decide which organs are present in this slice (using raw image and any red masks). Do NOT include organs you judge absent in hard_classes.
+    Select hard classes primarily among organs with visible red masks in this slice. If a prediction mask is missing, treat the organ as ABSENT by default. Only override this and use anatomical prior knowledge if you are EXTREMELY CONFIDENT the organ is present AND you can explicitly cite AT LEAST TWO clear, independent visual anchors in the raw image; otherwise treat it as absent.
+    IMPORTANT: If the prediction mask is missing, do NOT include that organ in hard_classes unless you can clearly point to at least two raw-image anchors; otherwise exclude it.
+    Output up to 5 hard classes (only among organs you judge present), ordered from hardest to easier.
+    Hardness criteria (judge from images only):
+    1) Smaller surface area => harder.
+    2) More fragmented mask (more disconnected parts) => harder.
+    3) More elongated shape (higher long/short axis ratio) => harder.
+    Output JSON:
+    {
+      "hard_classes": ["Spleen", "..."]
+    }
